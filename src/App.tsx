@@ -25,6 +25,11 @@ import {
   ListFilter
 } from "lucide-react";
 import IndiaMap from "./components/IndiaMap";
+import Soundboard from "./components/Soundboard";
+import SetupInstructions from "./components/SetupInstructions";
+import OnAirDesk from "./components/OnAirDesk";
+import VoiceMixing from "./components/VoiceMixing";
+import ExtrasPanel from "./components/ExtrasPanel";
 import { 
   LANGUAGES, 
   DIALECTS, 
@@ -78,6 +83,9 @@ const CRICKET_MOMENTS_PRESETS = [
 ];
 
 export default function App() {
+  // Navigation tabs state for a simplified workspace experience
+  const [activeTab, setActiveTab] = useState<"broadcast" | "casting" | "extras">("broadcast");
+
   // Client Gemini API Key management
   const [apiKey, setApiKey] = useState(() => {
     return localStorage.getItem("cricvoice_gemini_key") || "AIzaSyBnrvx3-ZhZsWOR0XJatUNPRO0wogF3yIQ";
@@ -907,6 +915,36 @@ ${formattingRule}
     return matchesSearch && matchesPopular;
   });
 
+  // Toggle advanced state for full 22-language search drawer
+  const [showAdvancedLanguages, setShowAdvancedLanguages] = useState(false);
+
+  // High-frequency presets that bundle language, dialect and hybrid slang instantly
+  const POPULAR_VIBES = [
+    { name: "UP Charcha 🗣️", langId: "hi", dialectId: "up_adda", hybridId: "none", personaId: "sidhu_paji", label: "🔥 UP/Sidhu", desc: "Awadhi-Bhojpuri flow spiced by Sidhuism" },
+    { name: "Punjabi Retro 🕺", langId: "pa", dialectId: "punjabi_retro", hybridId: "punjlish", personaId: "punjabi_retro", label: "🕺 Punjab Vibe", desc: "Vintage 80s Punjabi energy mixed into English phrases" },
+    { name: "Chennai Street 🏏", langId: "ta", dialectId: "chennai_gully", hybridId: "tanglish", personaId: "gully_kid", label: "🏏 Chennai Style", desc: "Local colloquial Tamil-Eng team banter" },
+    { name: "Kolkata Adda 🐟", langId: "bn", dialectId: "kolkata_adda", hybridId: "benglish", personaId: "meme_lord", label: "🐟 Kolkata Fun", desc: "Sarcastic Benglish cricket jokes" },
+    { name: "Stats Analytics 📊", langId: "en", dialectId: "", hybridId: "none", personaId: "data_scientist", label: "📊 Tech Data", desc: "Advanced telemetry and cricket metrics" }
+  ];
+
+  const handleVibeSelect = (vibe: typeof POPULAR_VIBES[0]) => {
+    const lang = LANGUAGES.find(l => l.id === vibe.langId);
+    if (lang) setSelectedLanguage(lang);
+    
+    if (vibe.dialectId) {
+      const dialect = DIALECTS.find(d => d.id === vibe.dialectId);
+      if (dialect) setSelectedDialect(dialect);
+    } else {
+      setSelectedDialect(null);
+    }
+
+    const hybrid = HYBRID_LANGUAGES.find(h => h.id === vibe.hybridId);
+    if (hybrid) setSelectedHybrid(hybrid);
+
+    const persona = ENTERTAINMENT_PERSONAS.find(p => p.id === vibe.personaId);
+    if (persona) handlePersonaChange(persona);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]">
       
@@ -1000,19 +1038,127 @@ ${formattingRule}
         )}
       </header>
 
-      {/* DASHBOARD LAYOUT GRID */}
+      {/* DUAL-COLUMN SYSTEM WORKSPACE */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* LEFT COLUMN: MULTILINGUAL CONTROLLERS & MAP SELECTOR (5 cols on lg) */}
-        <div className="lg:col-span-5 flex flex-col gap-6">
+        {/* LEFT COLUMN: SECTORS WORKSPACE */}
+        <div className="lg:col-span-6 flex flex-col gap-4">
           
-          {/* BONUSH INTERACTIVE INDIA MAP MODULE */}
-          <IndiaMap 
-            onSelectState={handleStateSelect} 
-            activeStateId={activeStateId} 
-          />
+          {/* CONTROL DECK TAB ROW */}
+          <div className="bg-slate-900 border border-slate-800/60 p-1 rounded-xl flex items-center justify-between text-xs font-mono">
+            <button
+              type="button"
+              onClick={() => setActiveTab("broadcast")}
+              className={`flex-1 py-1.5 px-1 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === "broadcast"
+                  ? "bg-slate-950 border border-slate-850 text-emerald-400 font-bold shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>🎙️</span>
+              <span className="text-[11px]">On-Air Setup</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("casting")}
+              className={`flex-1 py-1.5 px-1 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === "casting"
+                  ? "bg-slate-950 border border-slate-850 text-emerald-400 font-bold shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>🎛️</span>
+              <span className="text-[11px]">Voice Mixing</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("extras")}
+              className={`flex-1 py-1.5 px-1 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === "extras"
+                  ? "bg-slate-950 border border-slate-850 text-emerald-400 font-bold shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>🏟️</span>
+              <span className="text-[11px]">Map & Sounds</span>
+            </button>
+          </div>
 
-          {/* LANGUAGE SELECTOR PANEL */}
+          <div className="transition-all duration-300">
+            {activeTab === "broadcast" && (
+              <OnAirDesk
+                rawEvent={rawEvent}
+                setRawEvent={setRawEvent}
+                selectedLanguage={selectedLanguage}
+                setSelectedLanguage={setSelectedLanguage}
+                selectedDialect={selectedDialect}
+                setSelectedDialect={setSelectedDialect}
+                selectedHybrid={selectedHybrid}
+                setSelectedHybrid={setSelectedHybrid}
+                selectedPersona={selectedPersona}
+                handlePersonaChange={handlePersonaChange}
+                searchLangQuery={searchLangQuery}
+                setSearchLangQuery={setSearchLangQuery}
+                popularFilterOnly={popularFilterOnly}
+                setPopularFilterOnly={setPopularFilterOnly}
+                filteredLanguages={filteredLanguages}
+                favoriteLanguageIds={favoriteLanguageIds}
+                toggleFavoriteLanguage={toggleFavoriteLanguage}
+                errorMessage={errorMessage}
+                isLoading={isLoading}
+                handleGenerateCommentary={() => handleGenerateCommentary()}
+              />
+            )}
+
+            {activeTab === "casting" && (
+              <VoiceMixing
+                selectedMultiVoiceMode={selectedMultiVoiceMode}
+                setSelectedMultiVoiceMode={setSelectedMultiVoiceMode}
+                selectedVoiceChar={selectedVoiceChar}
+                setSelectedVoiceChar={setSelectedVoiceChar}
+                selectedVoiceChar2={selectedVoiceChar2}
+                setSelectedVoiceChar2={setSelectedVoiceChar2}
+                selectedVoiceChar3={selectedVoiceChar3}
+                setSelectedVoiceChar3={setSelectedVoiceChar3}
+                selectedVoiceChar4={selectedVoiceChar4}
+                setSelectedVoiceChar4={setSelectedVoiceChar4}
+                selectedVoiceEmotion={selectedVoiceEmotion}
+                setSelectedVoiceEmotion={setSelectedVoiceEmotion}
+                voiceEnergyLevel={voiceEnergyLevel}
+                setVoiceEnergyLevel={setVoiceEnergyLevel}
+                pitch={pitch}
+                setPitch={setPitch}
+                rate={rate}
+                setRate={setRate}
+                volume={volume}
+                setVolume={setVolume}
+                selectedVoiceName={selectedVoiceName}
+                setSelectedVoiceName={setSelectedVoiceName}
+                availableVoices={availableVoices}
+                isHumanizerEnabled={isHumanizerEnabled}
+                setIsHumanizerEnabled={setIsHumanizerEnabled}
+                desiFillerFrequency={desiFillerFrequency}
+                setDesiFillerFrequency={setDesiFillerFrequency}
+              />
+            )}
+
+            {activeTab === "extras" && (
+              <ExtrasPanel
+                activeStateId={activeStateId}
+                handleStateSelect={handleStateSelect}
+                commentaryQueue={commentaryQueue}
+                setCommentaryQueue={setCommentaryQueue}
+                isContinuousPlay={isContinuousPlay}
+                setIsContinuousPlay={setIsContinuousPlay}
+                triggerNextContinuousBall={triggerNextContinuousBall}
+                setRawEvent={setRawEvent}
+                setCommentaryText={setCommentaryText}
+                handleSpeak={handleSpeak}
+              />
+            )}
+          </div>
+
+          {/* LANGUAGE SELECTOR PANEL FOR REMOVAL */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col gap-4">
             
             <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-2">
