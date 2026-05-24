@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Pulse animation for the glowing Red Live dot */
+@keyframes neon-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.15);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.9);
+  }
+}
+
+.animate-live-dot {
+  animation: neon-pulse 1.8s infinite ease-in-out;
+}
+
+/* Audio wave bar height animation class if needed */
+@keyframes voice-wave {
+  0%, 100% {
+    transform: scaleY(0.2);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.voice-wave-bar {
+  animation: voice-wave 1s infinite ease-in-out;
+}
+
+/* Custom scrollbar for raw commentary events list */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}

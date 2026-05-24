@@ -1,0 +1,6 @@
+{
+  "name": "CricVoice Live",
+  "description": "An entertaining live cricket commentary generator that rewrites raw match events into hilarious, specific personas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
