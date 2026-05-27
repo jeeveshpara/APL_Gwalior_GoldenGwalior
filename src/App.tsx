@@ -86,10 +86,8 @@ export default function App() {
   // Navigation tabs state for a simplified workspace experience
   const [activeTab, setActiveTab] = useState<"broadcast" | "casting" | "extras">("broadcast");
 
-  // Client Gemini API Key management
-  const [apiKey, setApiKey] = useState(() => {
-    return localStorage.getItem("cricvoice_gemini_key") || "AIzaSyBnrvx3-ZhZsWOR0XJatUNPRO0wogF3yIQ";
-  });
+  // Client Gemini API Key management - now handled securely by our integrated backend server
+  const [apiKey, setApiKey] = useState("integrated");
   const [showKeyField, setShowKeyField] = useState(false);
   const [keySaved, setKeySaved] = useState(true);
 
@@ -525,11 +523,6 @@ export default function App() {
 
   // API Call commentary construction utilizing Gemini
   const handleGenerateCommentary = async (forcedEvent?: string) => {
-    if (!apiKey.trim()) {
-      setErrorMessage("Broadcast API key missing. Insert your Google Gemini API key at the top setup panel.");
-      return;
-    }
-
     const targetEvent = typeof forcedEvent === "string" ? forcedEvent : rawEvent;
 
     setErrorMessage("");
@@ -617,30 +610,21 @@ FORMATTING RULE:
 ${formattingRule}
 `;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey.trim()}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: promptText }]
-              }
-            ]
-          })
-        }
-      );
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ promptText })
+      });
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson?.error?.message || `Vocalizer server returned code ${response.status}`);
+        throw new Error(errJson?.error || `Vocalizer server returned code ${response.status}`);
       }
 
       const data = await response.json();
-      const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const generatedText = data.text;
 
       if (!generatedText) {
         throw new Error("Broadcaster synthesis returned empty candidate values. Please review parameters.");
@@ -962,8 +946,8 @@ ${formattingRule}
                 <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-white flex items-center gap-1.5">
                   CricVoice <span className="text-emerald-400">Live</span>
                 </h1>
-                <span className="text-[10px] md:text-xs font-bold font-mono tracking-wider bg-red-500/10 border border-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                <span className="text-[10px] md:text-xs font-bold font-mono tracking-wider bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   MULTILINGUAL V2.0
                 </span>
               </div>
@@ -972,70 +956,15 @@ ${formattingRule}
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className={`w-2.5 h-2.5 rounded-full ${keySaved ? "bg-emerald-500 shadow-sm shadow-emerald-500" : "bg-orange-500 animate-pulse"}`}></span>
-              <span className="text-xs font-mono text-slate-400">
-                {keySaved ? "Live Broadcast Server Active" : "Key Needed"}
+            <div className="flex items-center gap-2 bg-emerald-950/40 border border-emerald-500/15 px-3 py-1.5 rounded-lg shadow-inner">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
+              <span className="text-xs font-mono font-medium text-emerald-400">
+                Secure Live Broadcast Server Active
               </span>
             </div>
-
-            <button
-              onClick={() => setShowKeyField(!showKeyField)}
-              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all duration-200 cursor-pointer ${
-                showKeyField 
-                  ? "bg-slate-800 border-slate-600 text-white" 
-                  : "bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300"
-              }`}
-            >
-              <Key className="w-3.5 h-3.5" />
-              {keySaved ? "Configure Transmitting Key" : "Insert API Key"}
-            </button>
           </div>
 
         </div>
-
-        {/* Collapsible Key Setup Section */}
-        {showKeyField && (
-          <div className="bg-slate-900/95 border-b border-slate-800 p-4 transition-all duration-305">
-            <div className="max-w-3xl mx-auto">
-              <div className="flex items-start gap-3 mb-3 bg-emerald-950/20 border border-emerald-500/20 rounded-lg p-3 text-xs text-emerald-400">
-                <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <p>
-                  Your Gemini secure API key governs standalone translation queries securely in local client sandbox.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
-                  <Key className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-                  <input
-                    type="password"
-                    placeholder="Enter Gemini API Key (e.g. AIzaSy...)"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder-slate-600 font-mono"
-                  />
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={handleSaveApiKey}
-                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-sm rounded-lg transition-colors cursor-pointer"
-                  >
-                    Set Active
-                  </button>
-                  {keySaved && (
-                    <button
-                      onClick={handleClearApiKey}
-                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-red-400 font-medium text-sm rounded-lg border border-slate-700/60 transition-colors cursor-pointer"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </header>
 
       {/* DUAL-COLUMN SYSTEM WORKSPACE */}
