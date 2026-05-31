@@ -21,6 +21,180 @@ const ai = new GoogleGenAI({
   }
 });
 
+// API route to search and fetch the live running/recent cricket match of India / IPL
+app.post("/api/live-match", async (req, res) => {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({
+        error: "The server is missing the GEMINI_API_KEY. Please make sure to configure it."
+      });
+    }
+
+    // Call Gemini with search grounding to find real running/most recent Tata IPL / Indian Cricket Match scorecard.
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: "Look up today's live IPL cricket score or India national team live match scores using Google Search. If no match is currently playing live right now, look up the last ended major exciting Indian match (like TATA IPL 2026 / 2025 matches e.g. CSK vs RCB or MI vs KKR). Get real details including team names, scores, overs, batsman name, bowler name, situation, and recent balls. Return the parsed current state of the match strictly in the requested JSON structure.",
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            tournament: { type: "STRING" },
+            teamA: { type: "STRING" },
+            teamB: { type: "STRING" },
+            battingTeam: { type: "STRING" },
+            bowlingTeam: { type: "STRING" },
+            scoreA: { type: "STRING" },
+            oversA: { type: "STRING" },
+            scoreB: { type: "STRING" },
+            oversB: { type: "STRING" },
+            isLive: { type: "BOOLEAN" },
+            batter1: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
+                runs: { type: "INTEGER" },
+                balls: { type: "INTEGER" },
+                sr: { type: "NUMBER" }
+              }
+            },
+            batter2: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
+                runs: { type: "INTEGER" },
+                balls: { type: "INTEGER" },
+                sr: { type: "NUMBER" }
+              }
+            },
+            bowler: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
+                overs: { type: "NUMBER" },
+                runsAdded: { type: "INTEGER" },
+                wickets: { type: "INTEGER" },
+                econ: { type: "NUMBER" }
+              }
+            },
+            situation: { type: "STRING" },
+            lastBallEvent: { type: "STRING" },
+            recentBalls: {
+              type: "ARRAY",
+              items: { type: "STRING" }
+            }
+          },
+          required: ["tournament", "teamA", "teamB", "battingTeam", "bowlingTeam", "scoreA", "oversA", "scoreB", "oversB", "isLive", "batter1", "batter2", "bowler", "situation", "lastBallEvent", "recentBalls"]
+        }
+      }
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    console.error("Live match fetch error:", error);
+    res.status(500).json({ error: error.message || "Failed to retrieve live cricket scorecard." });
+  }
+});
+
+// API route to procedurally simulate the next ball in real-time based on game context (infinite simulator)
+app.post("/api/live-next-ball", async (req, res) => {
+  try {
+    const { gameState } = req.body;
+    if (!gameState) {
+      return res.status(400).json({ error: "Missing gameState parameter." });
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: "Missing GEMINI_API_KEY." });
+    }
+
+    const prompt = `
+You are a real-time live cricket sports simulator. Based on the current match state, dynamically generate the NEXT single delivery (1 ball) of this over.
+Do not use pre-defined text/scenarios. Make it highly realistic, situational, and dramatic.
+
+Game Context:
+Tournament: ${gameState.tournament}
+Matchup: ${gameState.teamA} vs ${gameState.teamB}
+Current Batting Team: ${gameState.battingTeam} is currently at: ${gameState.scoreCurrent} in ${gameState.oversCurrent} overs.
+Batter 1 (Facing): ${gameState.batter1.name} (${gameState.batter1.runs} runs off ${gameState.batter1.balls} balls)
+Batter 2 (Non-facing): ${gameState.batter2.name} (${gameState.batter2.runs} runs off ${gameState.batter2.balls} balls)
+Bowler Bowling: ${gameState.bowler.name} (${gameState.bowler.overs} overs, ${gameState.bowler.runsAdded} runs, ${gameState.bowler.wickets} wickets)
+Situation Description: ${gameState.situation}
+Recent balls in this over so far: ${JSON.stringify(gameState.recentBalls)}
+
+Your tasks:
+1. Decide the outcome of this ball (e.g., 0 runs, 1 run, 2 runs, 4 runs boundary, 6 runs boundaries, a Wide, an extra No-Ball, or a Wicket such as Caught, Bowled, LBW, Run Out). Make it fit the match pressure situation!
+2. Write a detailed, exciting, and high-energy live commentary action detailing that single ball (e.g. "Bumrah fires in a scorching yorker at 145 clicks! Dhoni swings, gets a thick inside edge that flies down past short fine leg for a quick boundary!"). Keep it in English and under 220 characters.
+3. Update the scorecard scores:
+   - If it's a legal delivery, advance oversCurrent by 0.1 (e.g. from 18.2 to 18.3. Note: if ball is the 6th delivery e.g. .5, it rolls over to next whole number .0, e.g. 18.5 -> 19.0).
+   - If it's a Wide ('wd') or No-Ball ('nb'), add +1 run (and any runs scored on it) to scoreCurrent, and add to bowler.runsAdded, but DO NOT advance oversCurrent ball count.
+   - Update batsman stats (adds runs and balls faced). Note: If batsmen score odd runs (1, 3) or it is over-end (.0), swap facing/non-facing batsmen in the batting team context.
+   - Update bowler stats adding balls (+1 ball if legal), runsAdded, and wickets (if wicket fell and was not a run-out).
+   - Update the situation to reflect new runs/balls needed if chasing, or general scorecard pressure.
+   - Append ballOutcome code to recentBalls (e.g. "0", "1", "2", "4", "6", "W", "wd"). If an over concluded, reset recentBalls to a new empty list or start of the new over of balls.
+
+Return the brand-new, updated game state scorecard strictly in the requested JSON structure.
+`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            scoreCurrent: { type: "STRING" },
+            oversCurrent: { type: "STRING" },
+            batter1: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
+                runs: { type: "INTEGER" },
+                balls: { type: "INTEGER" },
+                sr: { type: "NUMBER" }
+              }
+            },
+            batter2: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
+                runs: { type: "INTEGER" },
+                balls: { type: "INTEGER" },
+                sr: { type: "NUMBER" }
+              }
+            },
+            bowler: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
+                overs: { type: "NUMBER" },
+                runsAdded: { type: "INTEGER" },
+                wickets: { type: "INTEGER" },
+                econ: { type: "NUMBER" }
+              }
+            },
+            situation: { type: "STRING" },
+            lastBallEvent: { type: "STRING" },
+            recentBalls: {
+              type: "ARRAY",
+              items: { type: "STRING" }
+            },
+            ballOutcome: { type: "STRING" }
+          },
+          required: ["scoreCurrent", "oversCurrent", "batter1", "batter2", "bowler", "situation", "lastBallEvent", "recentBalls", "ballOutcome"]
+        }
+      }
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    console.error("Procedural ball simulation error:", error);
+    res.status(500).json({ error: error.message || "Failed to generate next delivery snapshot." });
+  }
+});
+
 // API route to perform secure, server-side commentary generation
 app.post("/api/generate", async (req, res) => {
   try {

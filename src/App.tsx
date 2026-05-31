@@ -54,34 +54,6 @@ import {
   MULTI_VOICE_MODES
 } from "./data/multilingualData";
 
-// Native scenario presets
-const CRICKET_MOMENTS_PRESETS = [
-  {
-    id: "dhoni_six_historic",
-    title: "Dhoni's World Cup Final Six 🏆",
-    event: "Nuwan Kulasekara bowls full, MS Dhoni swings with high backlift, lofts it straight over long-on for a monumental six! India wins the World Cup in superb fashion after 28 years!",
-    category: "Classic"
-  },
-  {
-    id: "kohli_mcg_six",
-    title: "Kohli's Impossible MCG Six ⚡",
-    event: "Haris Rauf bowls a slower back-of-hand bouncer on off stump. Virat Kohli stands tall, punches it flat back over the bowler's head straight into the stands at MCG for an unbelievable six!",
-    category: "Unbelievable"
-  },
-  {
-    id: "comical_muddle",
-    title: "Chaotic Gully Style Runout 🤡",
-    event: "The batsman edges behind, wicketkeeper misses, slip fielder falls down. Batsmen run two. Suddenly both strikers end up at the bowler's end, screaming at each other, while the bowler walks and runs them out.",
-    category: "Comedy"
-  },
-  {
-    id: "bumrah_yorker",
-    title: "Jasprit Bumrah Devastating Yorker 🎯",
-    event: "Jasprit Bumrah bowls an inswinging toe-crushing yorker at 145 kph. The batsman is completely beaten, falls down onto his back, and the middle stump is sent flying out of the ground!",
-    category: "Wicket"
-  }
-];
-
 export default function App() {
   // Navigation tabs state for a simplified workspace experience
   const [activeTab, setActiveTab] = useState<"broadcast" | "casting" | "extras">("broadcast");
@@ -110,9 +82,52 @@ export default function App() {
   // Interactive India State Map integration state
   const [activeStateId, setActiveStateId] = useState("IN-UP");
 
+  // Interface for Live Indian match tracking & simulation scorecard
+  interface ScorecardState {
+    tournament: string;
+    teamA: string;
+    teamB: string;
+    battingTeam: string;
+    bowlingTeam: string;
+    scoreCurrent: string;
+    oversCurrent: string;
+    batter1: { name: string; runs: number; balls: number; sr: number };
+    batter2: { name: string; runs: number; balls: number; sr: number };
+    bowler: { name: string; overs: number; runsAdded: number; wickets: number; econ: number };
+    situation: string;
+    lastBallEvent: string;
+    recentBalls: string[];
+  }
+
+  // The perfect India TATA IPL default match state
+  const [matchScorecard, setMatchScorecard] = useState<ScorecardState>({
+    tournament: "TATA IPL 2026 - PLAYOFFS",
+    teamA: "Chennai Super Kings",
+    teamB: "Royal Challengers Bengaluru",
+    battingTeam: "Royal Challengers Bengaluru",
+    bowlingTeam: "Chennai Super Kings",
+    scoreCurrent: "182/4",
+    oversCurrent: "18.0",
+    batter1: { name: "Virat Kohli", runs: 82, balls: 51, sr: 160.7 },
+    batter2: { name: "Dinesh Karthik", runs: 12, balls: 7, sr: 171.4 },
+    bowler: { name: "Matheesha Pathirana", overs: 3.0, runsAdded: 32, wickets: 2, econ: 10.6 },
+    situation: "RCB need 22 runs in 12 balls to win and qualify for the final!",
+    lastBallEvent: "Dinesh Karthik worked Pathirana's yorker down to deep square leg for a single to retain the strike.",
+    recentBalls: ["1", "4", "W", "2", "6", "1"]
+  });
+
+  const [liveLoading, setLiveLoading] = useState(false);
+
+  // Sync Scoreboard ball event to raw event, feeding CricVoice commentator seamlessly
+  useEffect(() => {
+    if (matchScorecard && matchScorecard.lastBallEvent) {
+      setRawEvent(matchScorecard.lastBallEvent);
+    }
+  }, [matchScorecard]);
+
   // Raw match event input
   const [rawEvent, setRawEvent] = useState(
-    "Nuwan Kulasekara bowls full, MS Dhoni swings with high backlift, lofts it straight over long-on for a monumental six! India wins the World Cup!"
+    "Dinesh Karthik worked Pathirana's yorker down to deep square leg for a single to retain the strike."
   );
 
   // Voice Customization & Broadcast Settings
@@ -509,17 +524,123 @@ export default function App() {
     return parsed;
   };
 
-  // Continuous ball simulation match dictionary
-  const REALTIME_CRICKET_EVENTS = [
-    "Jasprit Bumrah runs in, bowls a searing swinging yorker at 148kph! The off stump is cartwheel-bent into the turf! India bags a wicket!",
-    "Virat Kohli steps down the wicket to Rashid Khan, inside-out lofts it elegantly over extra-cover for a mesmerizing, high-trajectory six!",
-    "Rohit Sharma sits on his knee, sweet pull shot over backward square-leg! The ball hits local stadium advertisements with a loud metallic thump!",
-    "Mitchell Starc bowls an ultra-fast full toss. Batsman takes a swing, gets a thick top edge, ball goes high up, keeper runs, takes a great diving catch!",
-    "Suryakumar Yadav sweeps it backward! He scoops it lying almost parallel to ground, clears deep fine leg for an unbelievable scoop six!",
-    "Mohammed Shami runs in, wobble-seam delivery hitting top of off stump! Wicket flies! Absolute seam-bowling poetry!",
-    "Chaotic run out mixup! Jadeja drives straight into short cover and calls for single but Dhoni yells 'NO!' - both are trapped at the bowler's end!",
-    "Magical relay catch at boundary! Field caught the ball, throws it inside to partner while airborne, steps back and claims an outstanding catch!"
-  ];
+  // Fetch true live running match of India with Google search grounding secure server proxy
+  const handleFetchLiveMatch = async () => {
+    setLiveLoading(true);
+    setErrorMessage("");
+    try {
+      const res = await fetch("/api/live-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!res.ok) {
+        throw new Error(`Server returned HTTP code ${res.status}`);
+      }
+      const data = await res.json();
+      if (data && data.tournament) {
+        setMatchScorecard({
+          tournament: data.tournament || "TATA IPL LIVE FEED",
+          teamA: data.teamA || "India IPL Team A",
+          teamB: data.teamB || "India IPL Team B",
+          battingTeam: data.battingTeam || data.teamA,
+          bowlingTeam: data.bowlingTeam || data.teamB,
+          scoreCurrent: data.battingTeam === data.teamA ? data.scoreA : data.scoreB,
+          oversCurrent: data.battingTeam === data.teamA ? data.oversA : data.oversB,
+          batter1: data.batter1 || { name: "Active Batter", runs: 0, balls: 0, sr: 0 },
+          batter2: data.batter2 || { name: "Non-striker", runs: 0, balls: 0, sr: 0 },
+          bowler: data.bowler || { name: "Active Bowler", overs: 0, runsAdded: 0, wickets: 0, econ: 0 },
+          situation: data.situation || "Exciting finish on cards!",
+          lastBallEvent: data.lastBallEvent || "Match begins live...",
+          recentBalls: data.recentBalls || []
+        });
+      } else {
+        throw new Error("Invalid schema received from deep search API.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage("Live match search failed. Restored default TATA IPL playoff sandbox match.");
+    } finally {
+      setLiveLoading(false);
+    }
+  };
+
+  // Generate the next ball of the game procedurally (infinite live match simulator loop)
+  const handleBowlNextBall = async () => {
+    setLiveLoading(true);
+    setErrorMessage("");
+    playBatStroke();
+
+    try {
+      const res = await fetch("/api/live-next-ball", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameState: {
+            tournament: matchScorecard.tournament,
+            teamA: matchScorecard.teamA,
+            teamB: matchScorecard.teamB,
+            battingTeam: matchScorecard.battingTeam,
+            scoreCurrent: matchScorecard.scoreCurrent,
+            oversCurrent: matchScorecard.oversCurrent,
+            batter1: matchScorecard.batter1,
+            batter2: matchScorecard.batter2,
+            bowler: matchScorecard.bowler,
+            situation: matchScorecard.situation,
+            recentBalls: matchScorecard.recentBalls
+          }
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Ball simulator returned HTTP status ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (data && data.scoreCurrent) {
+        // Play live immersive crowd/umpire signals SFX based on delivery outcome
+        const outcome = (data.ballOutcome || "").toLowerCase();
+        if (outcome.includes("w")) {
+          playWhistle();
+        } else if (outcome.includes("4") || outcome.includes("6")) {
+          playCrowdRoar();
+          playStadiumTrumpet();
+        } else if (outcome !== "0") {
+          playWhistle();
+        }
+
+        const nextScorecard = {
+          tournament: matchScorecard.tournament,
+          teamA: matchScorecard.teamA,
+          teamB: matchScorecard.teamB,
+          battingTeam: matchScorecard.battingTeam,
+          bowlingTeam: matchScorecard.bowlingTeam,
+          scoreCurrent: data.scoreCurrent,
+          oversCurrent: data.oversCurrent,
+          batter1: data.batter1,
+          batter2: data.batter2,
+          bowler: data.bowler,
+          situation: data.situation,
+          lastBallEvent: data.lastBallEvent,
+          recentBalls: data.recentBalls
+        };
+
+        setMatchScorecard(nextScorecard);
+        setRawEvent(data.lastBallEvent);
+
+        // DELAY SLIGHTLY TO IMPART BROADCAST SUSPENSE
+        setTimeout(async () => {
+          await handleGenerateCommentary(data.lastBallEvent);
+        }, 800);
+      } else {
+        throw new Error("Ball simulation payload was corrupt.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage("Could not deliver the next match ball. Retrying over loops...");
+    } finally {
+      setLiveLoading(false);
+    }
+  };
 
   // API Call commentary construction utilizing Gemini
   const handleGenerateCommentary = async (forcedEvent?: string) => {
@@ -585,9 +706,18 @@ Each dialogue line MUST start exactly with the name bracket label:
 
       const promptText = `
 You are CricVoice, the legendary live cricket broadcaster.
-Rewrite the following raw Match Event into dramatic, high-energy live commentary!
+Rewrite the following raw Match Ball Event into dramatic, high-energy live commentary!
 
-Raw Match Event to rewrite: "${targetEvent}"
+Current Match Scorecard Situation:
+Tournament: ${matchScorecard?.tournament || "TATA IPL Cricket Championship"}
+Matchup: ${matchScorecard?.teamA || "Team A"} vs ${matchScorecard?.teamB || "Team B"}
+Active Batting Team: ${matchScorecard?.battingTeam || "Batting Side"} is currently on: ${matchScorecard?.scoreCurrent || "0/0"} in ${matchScorecard?.oversCurrent || "0.0"} overs.
+Batter 1 (on strike): ${matchScorecard?.batter1?.name || "Striker"} is on ${matchScorecard?.batter1?.runs || 0} runs off ${matchScorecard?.batter1?.balls || 0} balls (SR: ${matchScorecard?.batter1?.sr || 0}).
+Batter 2 (non-facing): ${matchScorecard?.batter2?.name || "Non-striker"} is on ${matchScorecard?.batter2?.runs || 0} runs off ${matchScorecard?.batter2?.balls || 0} balls (SR: ${matchScorecard?.batter2?.sr || 0}).
+Bowler bowling this over: ${matchScorecard?.bowler?.name || "Bowler"} (${matchScorecard?.bowler?.overs || 0} overs, conceded ${matchScorecard?.bowler?.runsAdded || 0} runs, claiming ${matchScorecard?.bowler?.wickets || 0} wickets).
+Current Match Situation: ${matchScorecard?.situation || ""}
+
+Raw Match Event/Ball delivery details to narrate in this ball: "${targetEvent}"
 
 Broadcasting Settings:
 1. Target Indian Language: ${selectedLanguage.name} (${selectedLanguage.native})
@@ -601,7 +731,7 @@ Broadcasting Settings:
 CRITICAL AI BROADCASTER RULES:
 1. Speak with maximum enthusiasm, physical sporting gestures, and dramatic stadium tension.
 2. Incorporate specific cricket terminologies naturally. 
-3. Never edit, alter, or translate player match names (such as Dhoni, Kohli, Bumrah, Shami, Rohit, Jadeja).
+3. Never edit, alter, or translate player match names (such as Dhoni, Kohli, Bumrah, Shami, Rohit, Jadeja, Dinesh Karthik, Pathirana).
 4. Do not prefix with brackets, text labels, or metadata tag titles (e.g. do NOT include 'Guru Sidhu:' or 'Commentary:'). Just begin the direct commentary speech script matching the formatting rules.
 5. ${selectedPersona.systemPromptAddition}
 6. ${humanizerInstructionText}
@@ -870,10 +1000,7 @@ ${formattingRule}
   // Continuous loop trigger callback
   const triggerNextContinuousBall = async () => {
     if (!isContinuousPlay) return;
-    const randomIndex = Math.floor(Math.random() * REALTIME_CRICKET_EVENTS.length);
-    const simulatedEvent = REALTIME_CRICKET_EVENTS[randomIndex];
-    setRawEvent(simulatedEvent);
-    await handleGenerateCommentary(simulatedEvent);
+    await handleBowlNextBall();
   };
 
   // Match Queue addition callback
@@ -1036,6 +1163,11 @@ ${formattingRule}
                 errorMessage={errorMessage}
                 isLoading={isLoading}
                 handleGenerateCommentary={() => handleGenerateCommentary()}
+                matchScorecard={matchScorecard}
+                setMatchScorecard={setMatchScorecard}
+                liveLoading={liveLoading}
+                handleFetchLiveMatch={handleFetchLiveMatch}
+                handleBowlNextBall={handleBowlNextBall}
               />
             )}
 
@@ -1087,608 +1219,12 @@ ${formattingRule}
             )}
           </div>
 
-          {/* LANGUAGE SELECTOR PANEL FOR REMOVAL */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col gap-4">
-            
-            <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-2">
-              <div className="flex items-center gap-2">
-                <Globe className="w-5 h-5 text-emerald-400" />
-                <h3 className="font-extrabold text-white text-base">State Languages Selector</h3>
-              </div>
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-950/60 border border-slate-850 py-0.5 px-2 rounded">
-                22 Indian Dialects Loaded
-              </span>
-            </div>
-
-            {/* Quick Favorites and Recents lists */}
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-slate-500 font-mono text-[11px]">Popular:</span>
-              {LANGUAGES.filter(l => l.isPopular).map(l => {
-                const isSelected = selectedLanguage.id === l.id;
-                return (
-                  <button
-                    key={l.id}
-                    onClick={() => setSelectedLanguage(l)}
-                    className={`px-2 py-1 rounded text-[10px] font-medium transition cursor-pointer border ${
-                      isSelected 
-                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
-                        : "bg-slate-950 border-slate-850 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                    }`}
-                  >
-                    {l.name}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Language search & filter bar */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Search Indian languages..."
-                  value={searchLangQuery}
-                  onChange={(e) => setSearchLangQuery(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-4 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-              </div>
-
-              <button
-                onClick={() => setPopularFilterOnly(!popularFilterOnly)}
-                className={`px-3 py-1.5 rounded-lg border text-xs font-mono flex items-center gap-1 cursor-pointer transition ${
-                  popularFilterOnly
-                    ? "bg-indigo-950 border-indigo-700 text-indigo-300"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800"
-                }`}
-              >
-                <ListFilter className="w-3 h-3" />
-                {popularFilterOnly ? "Popular Only" : "All 22"}
-              </button>
-            </div>
-
-            {/* Responsive scrolling list of languages */}
-            <div className="grid grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-1" id="language-grid-scroller">
-              {filteredLanguages.length === 0 ? (
-                <p className="text-xs text-slate-500 col-span-2 text-center py-4">No matching Indian languages found.</p>
-              ) : (
-                filteredLanguages.map((l) => {
-                  const isSelected = selectedLanguage.id === l.id;
-                  const isFav = favoriteLanguageIds.includes(l.id);
-                  
-                  return (
-                    <div
-                      key={l.id}
-                      onClick={() => {
-                        setSelectedLanguage(l);
-                        // Auto populate compatible dialect
-                        const matchesDialect = DIALECTS.find(d => d.langId === l.id);
-                        if (matchesDialect) {
-                          setSelectedDialect(matchesDialect);
-                        } else {
-                          setSelectedDialect(null);
-                        }
-                      }}
-                      className={`p-2.5 rounded-lg border text-left flex items-start justify-between gap-1 transition-all duration-150 cursor-pointer ${
-                        isSelected
-                          ? "bg-slate-950 border-emerald-500/60 ring-1 ring-emerald-500/10 shadow-lg shadow-emerald-950/10 text-white"
-                          : "bg-slate-950/70 border-slate-850 text-slate-400 hover:border-slate-800 hover:bg-slate-950"
-                      }`}
-                      id={`lang-card-${l.id}`}
-                    >
-                      <div>
-                        {/* Native Title */}
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-mono font-bold bg-slate-900 border border-slate-800 py-0.5 px-1.5 text-slate-300 rounded leading-none shrink-0">
-                            {l.native}
-                          </span>
-                          <span className={`text-xs font-semibold ${isSelected ? "text-slate-100" : "text-slate-300"}`}>
-                            {l.name}
-                          </span>
-                        </div>
-                        {/* Region */}
-                        <p className="text-[9px] text-slate-500 mt-1 leading-none truncate max-w-[110px]">{l.region}</p>
-                      </div>
-
-                      {/* Heart favoriter and popularity indicator */}
-                      <button
-                        onClick={(e) => toggleFavoriteLanguage(l.id, e)}
-                        className="p-1 rounded hover:bg-slate-800 transition shrink-0 cursor-pointer"
-                      >
-                        <Heart className={`w-3 h-3 ${isFav ? "fill-red-500 text-red-500 animate-pulse" : "text-slate-500 hover:text-slate-300"}`} />
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* DIALECT SELECTOR AND REGIONAL SLANG */}
-            <div className="space-y-3 bg-slate-950 border border-slate-850 p-4 rounded-xl">
-              <div>
-                <label className="text-xs text-white block font-bold mb-1 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
-                  Desi Dialect / Regional Slang style
-                </label>
-                <p className="text-[10px] text-slate-400 mb-2">Configure target slang performance index:</p>
-              </div>
-
-              <select
-                value={selectedDialect?.id || ""}
-                onChange={(e) => {
-                  const chosen = DIALECTS.find(d => d.id === e.target.value);
-                  setSelectedDialect(chosen || null);
-                }}
-                className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-                id="dialect-select-input"
-              >
-                <option value="">-- Standard Authentic Vocabulary (Standard Mode) --</option>
-                {DIALECTS.map(d => (
-                  <option key={d.id} value={d.id} className="bg-slate-900">
-                    {d.name} ({d.region})
-                  </option>
-                ))}
-              </select>
-
-              {selectedDialect && (
-                <p className="text-[10.5px] font-mono text-emerald-400 bg-emerald-950/20 border border-emerald-950 px-2 py-1.5 rounded italic">
-                  &ldquo;{selectedDialect.sampleText}&rdquo;
-                </p>
-              )}
-            </div>
-
-            {/* HYBRID LINGUISTIC MIXER (Hinglish/Tanglish check) */}
-            <div className="space-y-2">
-              <label className="text-xs text-white block font-bold flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                Language Switching Mode (Hybrid Styles)
-              </label>
-              
-              <div className="grid grid-cols-2 gap-1.5" id="hybrid-languages-container">
-                {HYBRID_LANGUAGES.map(h => {
-                  const isSelected = selectedHybrid.id === h.id;
-                  return (
-                    <button
-                      key={h.id}
-                      onClick={() => setSelectedHybrid(h)}
-                      className={`text-left p-2 rounded-lg border flex flex-col justify-between text-[11px] font-medium transition cursor-pointer h-12 leading-tight ${
-                        isSelected
-                          ? "bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-500/60 text-amber-300"
-                          : "bg-slate-950/60 border-slate-850 text-slate-400 hover:bg-slate-800"
-                      }`}
-                    >
-                      <span className="font-bold block text-slate-200">{h.name}</span>
-                      <span className="text-[9px] text-slate-500 text-ellipsis overflow-hidden whitespace-nowrap block w-full">{h.description}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-          </div>
-
-          {/* BROADCAST CONTEXT DECK & STADIUM QUEUE */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-indigo-450" />
-                <h3 className="font-extrabold text-white text-base">Broadcast Context & Feed</h3>
-              </div>
-              <span className="text-[9px] font-mono text-indigo-400 bg-indigo-950/20 border border-indigo-900/40 py-0.5 px-2 rounded uppercase font-bold">
-                PRO MODULE
-              </span>
-            </div>
-
-            {/* Broadcast Mode Selector dropdown */}
-            <div className="space-y-2">
-              <label className="text-xs text-white block font-bold flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
-                Commentary Broadcast Mode
-              </label>
-              <select
-                value={selectedBroadcastMode.id}
-                onChange={(e) => {
-                  const found = BROADCAST_MODES.find(b => b.id === e.target.value);
-                  if (found) setSelectedBroadcastMode(found);
-                }}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-              >
-                {BROADCAST_MODES.map(bm => (
-                  <option key={bm.id} value={bm.id}>
-                    📢 {bm.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[10px] text-slate-400 leading-normal bg-slate-950 p-2.5 rounded border border-slate-850">
-                {selectedBroadcastMode.promptMod}
-              </p>
-            </div>
-
-            {/* Simulated Live Feed & Queue console */}
-            <div className="space-y-3 pt-3 border-t border-slate-800/60">
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-white font-bold flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Stadium Queue & Live Match Logger
-                </label>
-                <button
-                  onClick={() => {
-                    setIsContinuousPlay(!isContinuousPlay);
-                    if (!isContinuousPlay) {
-                      setTimeout(() => triggerNextContinuousBall(), 300);
-                    }
-                  }}
-                  className={`text-[9.5px] font-mono px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer font-bold ${
-                    isContinuousPlay
-                      ? "bg-emerald-500 text-slate-950 animate-pulse"
-                      : "bg-slate-950 border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white"
-                  }`}
-                >
-                  <span className={`w-1 h-1 rounded-full ${isContinuousPlay ? "bg-slate-950" : "bg-emerald-400"}`} />
-                  {isContinuousPlay ? "Simulating Live" : "Run Live Sim"}
-                </button>
-              </div>
-
-              {/* Log Board list */}
-              <div className="bg-slate-950 rounded-xl p-3 border border-slate-850 h-[190px] overflow-y-auto flex flex-col gap-2 font-mono text-[10px]">
-                {commentaryQueue.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-600 gap-1.5 py-4">
-                    <span className="text-lg">📟</span>
-                    <p className="leading-snug text-[9.5px]">No matches logged in queue list.<br />Click "Queue Commentary" to save live balls!</p>
-                  </div>
-                ) : (
-                  [...commentaryQueue].reverse().map((item) => (
-                    <div key={item.id} className="p-2 bg-slate-900 border border-slate-800 rounded flex flex-col gap-1 text-slate-300">
-                      <div className="flex justify-between items-center text-[8.5px] text-slate-500 font-bold border-b border-slate-800/40 pb-1">
-                        <span>🕒 {item.timestamp}</span>
-                        <span className="text-emerald-400 uppercase">{item.language} &bull; {item.persona}</span>
-                      </div>
-                      <p className="text-white font-semibold text-[10px] leading-tight">Match Event: {item.matchEvent}</p>
-                      <p className="text-slate-400 leading-normal max-h-[50px] overflow-y-auto italic font-sans py-0.5">
-                        &ldquo;{item.commentaryText}&rdquo;
-                      </p>
-                      <div className="flex gap-1.5 justify-end pt-1">
-                        <button
-                          onClick={() => {
-                            setRawEvent(item.matchEvent);
-                            setCommentaryText(item.commentaryText);
-                            handleSpeak(item.commentaryText);
-                          }}
-                          className="px-2 py-0.5 bg-slate-950 border border-slate-850 rounded hover:bg-slate-800 hover:text-white transition text-[9px] font-bold text-slate-400 cursor-pointer"
-                        >
-                          Play Speech
-                        </button>
-                        <button
-                          onClick={() => setCommentaryQueue(prev => prev.filter(q => q.id !== item.id))}
-                          className="px-2 py-0.5 bg-slate-950 hover:bg-red-950/40 hover:text-red-400 rounded text-[9px] font-bold text-slate-500 border border-transparent hover:border-red-900/50 cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
         </div>
 
-        {/* RIGHT COLUMN: PERSONAS, RAW EVENTS & TELEPROMPTER SCREEN (7 cols on lg) */}
-        <div className="lg:col-span-7 flex flex-col gap-6">
+        {/* RIGHT COLUMN: ACTIVE BROADCAST MONITOR DECK (6 cols on lg) */}
+        <div className="lg:col-span-6 flex flex-col gap-4">
+
           
-          {/* SPECIAL ENTERTAINMENT PERSONA SELECTION */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-5">
-            <div className="flex gap-2 items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <span className="text-[10px] uppercase font-mono tracking-widest text-emerald-400 font-bold block mb-1">Vocal performance</span>
-                <h3 className="font-extrabold text-white text-base flex items-center gap-2">
-                  <Tv className="w-5 h-5 text-emerald-400" />
-                  Commentary Persona Studio
-                </h3>
-              </div>
-
-              <span className="text-[11px] bg-slate-950/80 border border-slate-850 font-mono text-slate-400 py-1 px-2.5 rounded-full">
-                {ENTERTAINMENT_PERSONAS.length} Performance Desks
-              </span>
-            </div>
-
-            {/* Persona chips slider list */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5" id="persona-scroller-grid">
-              {ENTERTAINMENT_PERSONAS.map((p) => {
-                const isActive = selectedPersona.id === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => handlePersonaChange(p)}
-                    className="flex flex-col items-start p-3 rounded-xl border text-left transition-all duration-300 cursor-pointer h-full justify-between gap-1.5 bg-slate-950/70 border-slate-850 text-slate-400 hover:border-slate-800 hover:bg-slate-950"
-                    style={isActive ? { borderColor: "rgba(16, 185, 129, 0.8)", backgroundColor: "rgb(2, 6, 23)", color: "white" } : {}}
-                  >
-                    <div className="flex items-center justify-between w-full gap-2">
-                      <span className="text-2xl filter drop-shadow select-none">{p.icon}</span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
-                        isActive ? "bg-emerald-500/25 text-emerald-400" : "bg-slate-850 text-slate-500"
-                      }`}>
-                        {p.badge}
-                      </span>
-                    </div>
-
-                    <div className="w-full">
-                      <strong className={`block text-xs font-bold leading-tight ${isActive ? "text-white" : "text-slate-300"}`}>
-                        {p.name}
-                      </strong>
-                      <span className="text-[10px] text-slate-500 leading-none">{p.title}</span>
-                    </div>
-
-                    <p className={`text-[10px] leading-tight ${isActive ? "text-slate-300" : "text-slate-500"}`}>
-                      {p.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* HIGH FIDELITY VOICE SELECTION ENGINE */}
-            <div className="pt-4 border-t border-slate-800 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="font-bold text-white text-xs uppercase font-mono tracking-wider flex items-center gap-1.5 animate-pulse">
-                  <span className="text-emerald-400 text-sm">🎙️</span> Flagship Voice Casting Builder
-                </h4>
-                
-                {/* Voice multi-voice mode select */}
-                <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800/85 text-[10px] font-mono">
-                  {MULTI_VOICE_MODES.map(mv => {
-                    const isSelected = selectedMultiVoiceMode.id === mv.id;
-                    return (
-                      <button
-                        key={mv.id}
-                        type="button"
-                        onClick={() => setSelectedMultiVoiceMode(mv)}
-                        className={`px-2 py-0.5 rounded transition cursor-pointer ${
-                          isSelected ? "bg-emerald-500 text-slate-950 font-bold" : "text-slate-400 hover:text-white"
-                        }`}
-                      >
-                        {mv.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Dynamic Casting Deck (Speaker 1, 2, 3, 4 selection depending on multi_voice_mode) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/50 p-3 rounded-lg border border-slate-850">
-                <div className="space-y-1.5">
-                  <label className="text-[10.5px] font-mono font-bold text-slate-400 block">Lead Actor Voice (Speaker 1)</label>
-                  <select
-                    value={selectedVoiceChar.id}
-                    onChange={(e) => {
-                      const found = VOICE_CHARACTERS.find(vc => vc.id === e.target.value);
-                      if (found) setSelectedVoiceChar(found);
-                    }}
-                    className="w-full bg-slate-900 border border-slate-850 rounded px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
-                  >
-                    {VOICE_CHARACTERS.map(vc => (
-                      <option key={vc.id} value={vc.id}>
-                        {vc.gender === "Female" ? "👩" : "👨"} {vc.name} ({vc.ageGroup} &bull; {vc.accent})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {selectedMultiVoiceMode.id !== "single" && (
-                  <div className="space-y-1.5">
-                    <label className="text-[10.5px] font-mono font-bold text-slate-450 block">Co-Analyst (Speaker 2)</label>
-                    <select
-                      value={selectedVoiceChar2.id}
-                      onChange={(e) => {
-                        const found = VOICE_CHARACTERS.find(vc => vc.id === e.target.value);
-                        if (found) setSelectedVoiceChar2(found);
-                      }}
-                      className="w-full bg-slate-900 border border-slate-850 rounded px-2.5 py-1 text-xs text-slate-350 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
-                    >
-                      {VOICE_CHARACTERS.map(vc => (
-                        <option key={vc.id} value={vc.id}>
-                          {vc.gender === "Female" ? "👩" : "👨"} {vc.name} ({vc.accent})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {(selectedMultiVoiceMode.id === "team" || selectedMultiVoiceMode.id === "expert_panel") && (
-                  <>
-                    <div className="space-y-1.5">
-                      <label className="text-[10.5px] font-mono font-bold text-slate-450 block">Expert Legend (Speaker 3)</label>
-                      <select
-                        value={selectedVoiceChar3.id}
-                        onChange={(e) => {
-                          const found = VOICE_CHARACTERS.find(vc => vc.id === e.target.value);
-                          if (found) setSelectedVoiceChar3(found);
-                        }}
-                        className="w-full bg-slate-900 border border-slate-850 rounded px-2.5 py-1 text-xs text-slate-350 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
-                      >
-                        {VOICE_CHARACTERS.map(vc => (
-                          <option key={vc.id} value={vc.id}>
-                            {vc.gender === "Female" ? "👩" : "👨"} {vc.name} ({vc.ageGroup})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {selectedMultiVoiceMode.id === "team" && (
-                      <div className="space-y-1.5">
-                        <label className="text-[10.5px] font-mono font-bold text-slate-450 block">Stadium Fan Sidekick (Speaker 4)</label>
-                        <select
-                          value={selectedVoiceChar4.id}
-                          onChange={(e) => {
-                            const found = VOICE_CHARACTERS.find(vc => vc.id === e.target.value);
-                            if (found) setSelectedVoiceChar4(found);
-                          }}
-                          className="w-full bg-slate-900 border border-slate-850 rounded px-2.5 py-1 text-xs text-slate-350 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
-                        >
-                          {VOICE_CHARACTERS.map(vc => (
-                            <option key={vc.id} value={vc.id}>
-                              {vc.gender === "Female" ? "👩" : "👨"} {vc.name} ({vc.accent})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Dialect multipliers, Emotion controls */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                <div className="space-y-1.5">
-                  <label className="text-xs text-white block font-bold flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                    Vocal Emotion Engine
-                  </label>
-                  <select
-                    value={selectedVoiceEmotion.id}
-                    onChange={(e) => {
-                      const found = VOICE_EMOTIONS.find(ve => ve.id === e.target.value);
-                      if (found) setSelectedVoiceEmotion(found);
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-rose-500 font-mono"
-                  >
-                    {VOICE_EMOTIONS.map(ve => (
-                      <option key={ve.id} value={ve.id}>
-                        🎭 {ve.name} (Multiplier bonus: +{ve.pitchBonus.toFixed(1)} pitch)
-                      </option>
-                    ))}
-                  </select>
-                  <span className="text-[9px] text-slate-500 italic block font-mono">
-                    Bonus parameters stacked physically: pitch pitchBonus (+{selectedVoiceEmotion.pitchBonus.toFixed(2)}) &bull; rateBonus ({selectedVoiceEmotion.rateBonus.toFixed(1)}x)
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-white block font-bold flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                    Broadcast Commentary Energy
-                  </label>
-                  <select
-                    value={voiceEnergyLevel}
-                    onChange={(e) => setVoiceEnergyLevel(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-350 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
-                  >
-                    <option value="low">💤 Calm Chilled Deep Tone</option>
-                    <option value="medium">🗣️ Conversational Normal Flow</option>
-                    <option value="high">🔥 Match Peak Broadcaster</option>
-                    <option value="extreme">⚡ Screaming Stadium Arena Ultra Hype</option>
-                  </select>
-                  <span className="text-[9px] text-slate-500 italic block font-mono">
-                    Dynamic pace sliders: stack multiplier coefficients on-air.
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* EVENTS WRITER & SOUNDBOARD PRESETS */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col gap-4">
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[10px] uppercase font-mono tracking-widest text-emerald-400 font-bold block mb-1">Live Feed Entry</span>
-                <h3 className="font-extrabold text-white text-base flex items-center gap-1.5">
-                  <Flame className="w-5 h-5 text-emerald-400 animate-pulse" />
-                  Raw Match Event Action Details
-                </h3>
-              </div>
-
-              <span className="text-[10px] font-mono text-slate-400 py-0.5 px-2 bg-slate-950 border border-slate-850 rounded">
-                Interactive Presets
-              </span>
-            </div>
-
-            {/* Presets Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" id="presest-scenarios-grid">
-              {CRICKET_MOMENTS_PRESETS.map((preset) => {
-                const isSelected = rawEvent === preset.event;
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => setRawEvent(preset.event)}
-                    className={`text-left p-3 rounded-lg border text-xs flex flex-col justify-between transition cursor-pointer ${
-                      isSelected 
-                        ? "bg-slate-950 border-emerald-400/50 text-slate-200" 
-                        : "bg-slate-950/60 border-slate-850 text-slate-400 hover:bg-slate-800"
-                    }`}
-                    id={`cricket-preset-${preset.id}`}
-                  >
-                    <div className="flex items-center justify-between w-full mb-1">
-                      <strong className="font-bold text-slate-200 truncate pr-2">{preset.title}</strong>
-                      <span className="text-[9px] bg-slate-850 text-slate-500 font-mono px-1 py-0.5 rounded shrink-0">
-                        {preset.category}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 truncate w-full">{preset.event}</p>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Action text area */}
-            <div className="relative">
-              <textarea
-                value={rawEvent}
-                onChange={(e) => setRawEvent(e.target.value)}
-                rows={4}
-                className="w-full text-xs sm:text-sm bg-slate-950 border border-slate-850 rounded-xl p-3.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-200 placeholder-slate-600 resize-none font-sans"
-                maxLength={450}
-              />
-              <div className="absolute bottom-2 right-3 text-[9px] font-mono text-slate-500">
-                {rawEvent.length}/450 characters
-              </div>
-            </div>
-
-            {/* Error notifications */}
-            {errorMessage && (
-              <div className="bg-red-950/20 border border-red-500/20 rounded-lg p-3 text-xs text-red-500 flex items-start gap-2 animate-pulse">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <p>{errorMessage}</p>
-              </div>
-            )}
-
-            {/* GENERATE COMMENTARY BUTTON */}
-            <button
-              onClick={handleGenerateCommentary}
-              disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-xl font-bold font-mono tracking-wider text-sm flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 transform active:scale-[0.98] ${
-                isLoading 
-                  ? "bg-slate-800 text-slate-500 border border-slate-750 cursor-not-allowed" 
-                  : "bg-gradient-to-r from-emerald-500 to-green-400 text-slate-950 hover:from-emerald-400 hover:to-green-300 shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20"
-              }`}
-              id="synthesize-button"
-            >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  SYNTHESIZING DUAL PERSONA BROADCAST SHOW...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5" />
-                  GENERATE LIVE PERSONA BROADCAST (AI + TTS)
-                </>
-              )}
-            </button>
-
-            {/* Save to Stadium logger queue */}
-            {commentaryText && (
-              <button
-                type="button"
-                onClick={handleQueueCommentary}
-                className="w-full py-2 px-3 rounded-lg bg-slate-950 hover:bg-slate-900 text-indigo-400 hover:text-indigo-300 border border-indigo-950/80 text-xs font-mono font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer"
-              >
-                📟 LOG & SAVE BROADCAST TO STADIUM QUEUE
-              </button>
-            )}
-
-          </div>
 
           {/* TELEPROMPTER VIEW & ACTIVE AIR MONITORS */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-2xl relative overflow-hidden flex flex-col justify-between">
@@ -1705,11 +1241,19 @@ ${formattingRule}
 
               <div className="flex items-center gap-2">
                 {commentaryText && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const dateStr = new Date().toISOString().replace(/T/, '_').replace(/\..+/, '').replace(/:/g, '-');
-                      const headerInfo = `====================================================
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleQueueCommentary}
+                      className="px-2 py-0.5 rounded bg-indigo-950/80 border border-indigo-900/60 hover:bg-indigo-900 hover:text-indigo-200 transition text-[9px] font-mono font-bold text-indigo-400 flex items-center gap-1 cursor-pointer"
+                    >
+                      📟 Log Broadcast
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dateStr = new Date().toISOString().replace(/T/, '_').replace(/\..+/, '').replace(/:/g, '-');
+                        const headerInfo = `====================================================
 CRICVOICE LIVE commentary broadcast export
 ====================================================
 Timestamp   : ${new Date().toLocaleString()}
@@ -1727,19 +1271,20 @@ ${commentaryText}
 ====================================================
 Generated using Google Gemini 3.5-flash AI & CricVoice Studio
 ====================================================`;
-                      const blob = new Blob([headerInfo], { type: "text/plain;charset=utf-8" });
-                      const url = URL.createObjectURL(blob);
-                      const link = document.createElement("a");
-                      link.href = url;
-                      link.download = `cricvoice_commentary_${dateStr}.txt`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
-                    className="px-2 py-0.5 rounded bg-slate-950 border border-slate-850 hover:bg-slate-800 transition text-[9px] font-mono font-bold text-slate-300 flex items-center gap-1 cursor-pointer"
-                  >
-                    📂 Export Script (.TXT)
-                  </button>
+                        const blob = new Blob([headerInfo], { type: "text/plain;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = `cricvoice_commentary_${dateStr}.txt`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-950 border border-slate-850 hover:bg-slate-800 transition text-[9px] font-mono font-bold text-slate-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      📂 Export Script (.TXT)
+                    </button>
+                  </>
                 )}
 
                 {isSpeaking ? (

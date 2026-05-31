@@ -1,38 +1,11 @@
 import React, { useState } from "react";
-import { Search, ListFilter, Heart, AlertCircle, Sparkles, RefreshCw, CheckCircle, HelpCircle } from "lucide-react";
+import { Search, AlertCircle, Sparkles, RefreshCw, Globe, Flame, Award, Users, Crosshair } from "lucide-react";
 import { 
   LANGUAGES, 
   DIALECTS, 
   ENTERTAINMENT_PERSONAS, 
   HYBRID_LANGUAGES 
 } from "../data/multilingualData";
-
-const CRICKET_MOMENTS_PRESETS = [
-  {
-    id: "dhoni_six_historic",
-    title: "Dhoni's World Cup Final Six 🏆",
-    event: "Nuwan Kulasekara bowls full, MS Dhoni swings with high backlift, lofts it straight over long-on for a monumental six! India wins the World Cup in superb fashion after 28 years!",
-    category: "Classic"
-  },
-  {
-    id: "kohli_mcg_six",
-    title: "Kohli's Impossible MCG Six ⚡",
-    event: "Haris Rauf bowls a slower back-of-hand bouncer on off stump. Virat Kohli stands tall, punches it flat back over the bowler's head straight into the stands at MCG for an unbelievable six!",
-    category: "Unbelievable"
-  },
-  {
-    id: "comical_muddle",
-    title: "Chaotic Gully Style Runout 🤡",
-    event: "The batsman edges behind, wicketkeeper misses, slip fielder falls down. Batsmen run two. Suddenly both strikers end up at the bowler's end, screaming at each other, while the bowler walks and runs them out.",
-    category: "Comedy"
-  },
-  {
-    id: "bumrah_yorker",
-    title: "Jasprit Bumrah Devastating Yorker 🎯",
-    event: "Jasprit Bumrah bowls an inswinging toe-crushing yorker at 145 kph. The batsman is completely beaten, falls down onto his back, and the middle stump is sent flying out of the ground!",
-    category: "Wicket"
-  }
-];
 
 interface OnAirDeskProps {
   rawEvent: string;
@@ -55,6 +28,13 @@ interface OnAirDeskProps {
   errorMessage: string;
   isLoading: boolean;
   handleGenerateCommentary: () => void;
+  
+  // LIVE IPL SCOREBOARD PROPS
+  matchScorecard: any;
+  setMatchScorecard: (val: any) => void;
+  liveLoading: boolean;
+  handleFetchLiveMatch: () => void;
+  handleBowlNextBall: () => void;
 }
 
 export default function OnAirDesk({
@@ -74,10 +54,15 @@ export default function OnAirDesk({
   setPopularFilterOnly,
   filteredLanguages,
   favoriteLanguageIds,
-  toggleFavoriteLanguage,
   errorMessage,
   isLoading,
-  handleGenerateCommentary
+  handleGenerateCommentary,
+  
+  matchScorecard,
+  setMatchScorecard,
+  liveLoading,
+  handleFetchLiveMatch,
+  handleBowlNextBall
 }: OnAirDeskProps) {
   
   const [showAdvancedLanguages, setShowAdvancedLanguages] = useState(false);
@@ -109,53 +94,230 @@ export default function OnAirDesk({
     if (persona) handlePersonaChange(persona);
   };
 
+  // Color code helper for ball details display on scoreboard over history
+  const getBallBadgeColor = (ball: string) => {
+    const b = ball.trim().toUpperCase();
+    if (b === "6") return "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-extrabold";
+    if (b === "4") return "bg-orange-500/20 text-orange-400 border border-orange-500/40 font-extrabold";
+    if (b === "W") return "bg-rose-600 text-white font-extrabold border border-rose-500 animate-pulse";
+    if (b === "0" || b === "DOT") return "bg-slate-900 text-slate-500 border border-slate-800";
+    if (b.includes("WD") || b.includes("NB")) return "bg-indigo-950 text-indigo-300 border border-indigo-900";
+    return "bg-slate-800 text-slate-300 border border-slate-700";
+  };
+
   return (
     <div className="space-y-4">
       
-      {/* SECTION A: EVENT DETAILS TEXTAREA */}
-      <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4 sm:p-5 space-y-4 shadow-md">
-        <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
+      {/* SECTION A: STADIUM LIVE RUNNING MATCH CONTROL CENTER */}
+      <div className="bg-slate-950 border-2 border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative">
+        {/* Glow Header */}
+        <div className="bg-gradient-to-r from-emerald-950/80 via-slate-900 to-emerald-950/80 px-4 py-3 border-b border-slate-850 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm">📝</span>
-            <h3 className="font-extrabold text-white text-xs sm:text-sm">Step 1: Raw Match Action Details</h3>
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-[10px] font-mono tracking-widest text-emerald-400 font-extrabold uppercase">
+              TATA IPL LIVE DIGITAL CONTROLLERS
+            </span>
           </div>
-          <span className="text-[9.5px] font-mono text-slate-550">Max limit: 450 chars</span>
+          <span className="text-[9px] font-mono text-slate-500 font-semibold bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+            {matchScorecard?.tournament || "TATA IPL T20 FEED"}
+          </span>
         </div>
 
-        {/* Micro-Chips for Scenario selection */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight mr-1">Hot Presets:</span>
-          {CRICKET_MOMENTS_PRESETS.map((p) => {
-            const isSelected = rawEvent === p.event;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setRawEvent(p.event)}
-                className={`px-2 py-1 rounded text-[9.5px] font-semibold transition cursor-pointer ${
-                  isSelected
-                    ? "bg-emerald-500 text-slate-950 font-bold"
-                    : "bg-slate-950 hover:bg-slate-800 text-slate-400 border border-slate-850"
-                }`}
-              >
-                {p.title}
-              </button>
-            );
-          })}
-        </div>
+        {/* Dynamic Scoreboard Box */}
+        <div className="p-4 sm:p-5 space-y-4.5 bg-slate-950/70">
+          
+          {/* Match Score Display Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/40 border border-slate-850 p-3.5 rounded-xl">
+            <div>
+              <div className="flex items-center gap-2 font-bold text-white text-sm sm:text-base">
+                <span className="text-orange-400">🏏</span>
+                <span>{matchScorecard?.teamA}</span>
+                <span className="text-slate-500 text-xs">vs</span>
+                <span className="text-emerald-400">{matchScorecard?.teamB}</span>
+              </div>
+              <p className="text-[10px] text-slate-450 mt-1 font-mono tracking-tight text-slate-400">
+                Current batting: <strong className="text-white uppercase">{matchScorecard?.battingTeam}</strong>
+              </p>
+            </div>
 
-        <div className="relative">
-          <textarea
-            value={rawEvent}
-            onChange={(e) => setRawEvent(e.target.value)}
-            rows={3}
-            placeholder="Write or edit live match action details (e.g. Kohli steps down and smokes it straight back over bowler's head...)"
-            className="w-full text-xs sm:text-sm bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-200 placeholder-slate-700 resize-none font-sans leading-relaxed"
-            maxLength={450}
-          />
-          <div className="absolute bottom-1.5 right-2.5 text-[8.5px] font-mono text-slate-600">
-            {rawEvent.length}/450 Chars
+            <div className="text-right flex sm:flex-col items-baseline sm:items-end gap-2 sm:gap-0 bg-slate-950 border border-slate-850 sm:border-transparent px-3 py-1.5 sm:p-0 rounded-lg">
+              <div className="text-emerald-400 text-lg sm:text-2xl font-black font-mono tracking-tight leading-none">
+                {matchScorecard?.scoreCurrent}
+              </div>
+              <span className="text-[10px] font-mono text-slate-550 block mt-0.5 font-bold text-slate-400">
+                {matchScorecard?.oversCurrent} Overs
+              </span>
+            </div>
           </div>
+
+          {/* Batsmen & Bowlers Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3" id="live-player-matrix">
+            {/* Batter Box */}
+            <div className="bg-slate-900/60 border border-slate-850 p-3 rounded-xl flex flex-col justify-between">
+              <div className="flex items-center gap-1 text-[10px] text-slate-450 uppercase font-mono font-bold tracking-wider mb-2 text-slate-500">
+                <Users className="w-3.5 h-3.5 text-orange-400" />
+                <span>Active Batsmen</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-mono font-semibold">
+                  <div className="flex items-center gap-1.5 text-white">
+                    <span className="text-emerald-400 animate-pulse text-[11px]">🟢</span>
+                    <span className="font-sans font-bold">{matchScorecard?.batter1?.name}</span>
+                  </div>
+                  <div className="text-slate-300">
+                    <strong className="text-white text-sm font-black">{matchScorecard?.batter1?.runs}</strong>
+                    <span className="text-[10px] text-slate-500">({matchScorecard?.batter1?.balls}b)</span>
+                    <span className="text-[9px] bg-slate-950 px-1 py-0.5 rounded text-slate-400 ml-1.5 font-normal">SR {matchScorecard?.batter1?.sr}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-xs font-mono font-semibold border-t border-slate-850/60 pt-2">
+                  <div className="flex items-center gap-1.5 text-slate-400">
+                    <span className="text-slate-700 text-[11px]">&bull;</span>
+                    <span className="font-sans">{matchScorecard?.batter2?.name}</span>
+                  </div>
+                  <div className="text-slate-450">
+                    <strong className="text-slate-300 text-sm font-black">{matchScorecard?.batter2?.runs}</strong>
+                    <span className="text-[10px] text-slate-500 font-normal">({matchScorecard?.batter2?.balls}b)</span>
+                    <span className="text-[9px] bg-slate-950 px-1 py-0.5 rounded text-slate-500 ml-1.5 font-normal">SR {matchScorecard?.batter2?.sr}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bowler Box */}
+            <div className="bg-slate-900/60 border border-slate-850 p-3 rounded-xl flex flex-col justify-between">
+              <div className="flex items-center gap-1 text-[10px] text-slate-450 uppercase font-mono font-bold tracking-wider mb-2 text-slate-500">
+                <Crosshair className="w-3.5 h-3.5 text-emerald-450" />
+                <span>Active Bowler</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-mono font-bold text-white">
+                  <span className="font-sans font-extrabold text-slate-200">{matchScorecard?.bowler?.name}</span>
+                  <div className="text-slate-300">
+                    <span className="text-slate-450 font-normal text-[10px]">Overs:</span> {matchScorecard?.bowler?.overs}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-1 pt-1 ml-0.5">
+                  <div className="bg-slate-950/70 py-1 px-2 rounded border border-slate-850 text-center">
+                    <span className="text-[8px] text-slate-500 font-mono font-black uppercase block leading-none">Conceded</span>
+                    <strong className="text-white text-xs font-black font-mono block mt-1">{matchScorecard?.bowler?.runsAdded} Runs</strong>
+                  </div>
+                  <div className="bg-slate-950/70 py-1 px-2 rounded border border-slate-850 text-center">
+                    <span className="text-[8px] text-slate-500 font-mono font-black uppercase block leading-none">Wickets</span>
+                    <strong className="text-rose-500 text-xs font-black font-mono block mt-1">{matchScorecard?.bowler?.wickets} Wkt</strong>
+                  </div>
+                  <div className="bg-slate-950/70 py-1 px-2 rounded border border-slate-850 text-center">
+                    <span className="text-[8px] text-slate-500 font-mono font-black uppercase block leading-none">Economy</span>
+                    <strong className="text-indigo-400 text-xs font-black font-mono block mt-1">{matchScorecard?.bowler?.econ}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Over Ball history / Situation Status */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between text-[10px] font-mono tracking-tight">
+              <span className="text-slate-500 font-bold uppercase">This Over History:</span>
+              <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded font-bold border border-slate-850">
+                Recent Outcomes
+              </span>
+            </div>
+
+            {/* Over Ball Badges Strip */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              {matchScorecard?.recentBalls?.length === 0 ? (
+                <span className="text-[10px] font-mono font-bold text-slate-600 block py-1">Beginning of the new over...</span>
+              ) : (
+                matchScorecard?.recentBalls?.map((ball: string, index: number) => (
+                  <span
+                    key={index}
+                    className={`w-7.5 h-7.5 rounded-full flex items-center justify-center text-[10px] font-mono font-black shadow-sm ${getBallBadgeColor(ball)}`}
+                  >
+                    {ball}
+                  </span>
+                ))
+              )}
+            </div>
+
+            <div className="bg-orange-950/20 border border-orange-900/40 rounded-xl p-3 text-[10.5px] leading-relaxed text-orange-300 font-semibold flex items-center gap-2">
+              <Award className="w-4 h-4 shrink-0 text-orange-400" />
+              <p>{matchScorecard?.situation || "No special run target situation configured."}</p>
+            </div>
+          </div>
+
+          {/* DELIVER DYNAMIC MATCH COMMENTARY EVENTS LOG ACTION */}
+          <div className="pt-2.5 border-t border-slate-850 space-y-2">
+            <label className="text-[10px] text-slate-450 block uppercase font-mono font-extrabold tracking-wider text-slate-450">
+              📢 Dynamic Live Action Description (Generated on-the-fly)
+            </label>
+            <div className="relative">
+              <textarea
+                value={rawEvent}
+                onChange={(e) => setRawEvent(e.target.value)}
+                rows={2}
+                placeholder="The dynamic match detail will appear here. You can manually edit it to trigger any custom action you want!"
+                className="w-full text-xs sm:text-sm bg-slate-900/90 border border-slate-800 rounded-xl p-3 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-200 placeholder-slate-700 resize-none font-sans leading-relaxed"
+                maxLength={450}
+              />
+              <div className="absolute bottom-1.5 right-2 text-[8.5px] font-mono text-slate-600">
+                {rawEvent.length}/450 Chars
+              </div>
+            </div>
+          </div>
+
+          {/* Scoreboard Actions Dual Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={handleFetchLiveMatch}
+              disabled={liveLoading}
+              className={`py-3 px-4 rounded-xl font-mono text-xs font-bold flex items-center justify-center gap-2 transition border cursor-pointer active:scale-[0.98] ${
+                liveLoading
+                  ? "bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed"
+                  : "bg-slate-900 hover:bg-slate-850 text-emerald-450 hover:text-emerald-400 border-slate-800 hover:border-emerald-900"
+              }`}
+            >
+              {liveLoading ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  TUNING DIALS...
+                </>
+              ) : (
+                <>
+                  <Globe className="w-3.5 h-3.5" />
+                  🌐 CONNECT GOOGLE LIVE IPL
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleBowlNextBall}
+              disabled={liveLoading}
+              className={`py-3 px-4 rounded-xl font-mono text-xs font-black tracking-wide flex items-center justify-center gap-2 transition cursor-pointer active:scale-[0.98] ${
+                liveLoading
+                  ? "bg-slate-900 text-slate-500 border-slate-800"
+                  : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold hover:shadow-lg hover:shadow-emerald-500/10"
+              }`}
+            >
+              {liveLoading ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                  BOWLER RUNNING IN...
+                </>
+              ) : (
+                <>
+                  <Flame className="w-3.5 h-3.5 text-slate-950" />
+                  ⚡ BOWL NEXT BALL (LIVE LOOP)
+                </>
+              )}
+            </button>
+          </div>
+
         </div>
       </div>
 
@@ -281,7 +443,7 @@ export default function OnAirDesk({
 
             {/* Dialect selector dropdown inside Advanced */}
             <div className="space-y-1 p-2.5 rounded-lg bg-slate-900 border border-slate-850">
-              <label className="text-[9.5px] text-slate-400 block font-bold uppercase font-mono tracking-wider">Configure regional dialect Slang voice</label>
+              <label className="text-[9.5px] text-slate-405 block font-bold uppercase font-mono tracking-wider">Configure regional dialect Slang voice</label>
               <select
                 value={selectedDialect?.id || ""}
                 onChange={(e) => {
@@ -380,7 +542,7 @@ export default function OnAirDesk({
           disabled={isLoading}
           className={`w-full py-3.5 px-5 rounded-xl font-bold font-mono tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2.5 cursor-pointer transition transform active:scale-[0.99] border ${
             isLoading 
-              ? "bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed" 
+              ? "bg-slate-900 text-slate-505 border-slate-800 cursor-not-allowed" 
               : "bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 border-emerald-500 hover:brightness-110 shadow-lg shadow-emerald-500/5 hover:shadow-emerald-500/10"
           }`}
         >
