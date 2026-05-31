@@ -31,9 +31,29 @@ app.post("/api/live-match", async (req, res) => {
     }
 
     // Call Gemini with search grounding to find real running/most recent Tata IPL / Indian Cricket Match scorecard.
+    const currentDate = "Sunday, May 31, 2026";
+    const contentsText = `
+You are a live cricket data researcher. Today's date is ${currentDate}.
+Using Google Search, search for any ACTIVE live cricket match today (TATA IPL 2026, India national cricket team, or bilateral series). 
+If there is no active live match playing right now on ${currentDate}, search for the most recently completed/concluded actual major match of India (Men's or Women's international, or TATA IPL 2026 playoffs/final) that was played today or in the last few days in late May 2026.
+Retrieve real, authentic scorecard details including:
+- Tournament name (like 'TATA IPL 2026' or 'ICC World Test Championship')
+- Real team names (like CSK, RCB, KKR, MI, SRH, RR, India, or opponent nation)
+- Current batting team and bowling team
+- Scores and overs of both teams (e.g. scoreA: "182/4", oversA: "18.3")
+- If the match is concluded or live, set isLive to true if playing now, or false if finished.
+- Real player names of active batsmen on crease (e.g. Virat Kohli, etc.) with their real runs, balls faced, and strike rates.
+- Real bowler name of the current over (e.g. Bumrah, Starc, etc.) with real overs bowled, runs conceded, wickets taken, and economy.
+- The precise match situation or win/chase equation (e.g. "KKR won by 8 wickets with 57 balls remaining", or "RCB need 22 runs in 12 balls to win and qualify").
+- Short, dramatic summary of the last ball action.
+- The last 6 ball outcomes in the current over (like ["1", "4", "W", "2", "6", "1"]).
+
+Return the parsed current state of this match strictly in the requested JSON structure. Do NOT use fake placeholder team names (such as "India IPL Team A") or generic players. Use real current matches and real actual player stats.
+`;
+
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
-      contents: "Look up today's live IPL cricket score or India national team live match scores using Google Search. If no match is currently playing live right now, look up the last ended major exciting Indian match (like TATA IPL 2026 / 2025 matches e.g. CSK vs RCB or MI vs KKR). Get real details including team names, scores, overs, batsman name, bowler name, situation, and recent balls. Return the parsed current state of the match strictly in the requested JSON structure.",
+      contents: contentsText,
       config: {
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
